@@ -1,0 +1,5 @@
+wheel==0.30.0
+Django==1.11.10
+djangorestframework==3.7.7
+MySQL_python==1.2.5
+pytz==2017.3

@@ -1,0 +1,231 @@
+  {% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  <meta charset="utf-8">
+  <title>Risk Mgr</title>
+  <link rel="stylesheet" type="text/css" href="{% static 'css/vfg.css' %}">
+  <link rel="stylesheet" type="text/css" href="{% static 'css/bootstrap.min.css' %}">
+  <link rel="stylesheet" type="text/css" href="{% static 'css/bootstrap-datetimepicker.css' %}">
+
+
+  <style>
+      html {
+        font-family: Tahoma;
+        font-size: 14px;
+      }
+
+      body {
+        font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+        font-size: 14px;
+        line-height: 1.42857143;
+        color: #333;
+      }      
+
+      pre {
+        overflow: auto;
+      }
+        pre .string { color: #885800; }
+        pre .number { color: blue; }
+        pre .boolean { color: magenta; }
+        pre .null { color: red; }
+        pre .key { color: green; }    
+            
+      .container {
+        max-width: 970px;
+        padding-right: 15px;
+        padding-left: 15px;
+        margin-right: auto;
+        margin-left: auto;        
+      }
+
+      h1 {
+        text-align: center;
+        font-size: 36px;
+        margin-top: 20px;
+        margin-bottom: 10px;
+        font-weight: 500;
+      }
+
+      fieldset {
+        border: 0;
+      }
+
+      .panel {
+        margin-bottom: 20px;
+        background-color: #fff;
+        border: 1px solid transparent;
+        border-radius: 4px;
+        -webkit-box-shadow: 0 1px 1px rgba(0, 0, 0, .05);
+        box-shadow: 0 1px 1px rgba(0, 0, 0, .05);
+        border-color: #ddd;
+      }
+
+      .panel-heading {
+        color: #333;
+        background-color: #f5f5f5;
+        border-color: #ddd;
+
+        padding: 10px 15px;
+        border-bottom: 1px solid transparent;
+        border-top-left-radius: 3px;
+        border-top-right-radius: 3px;        
+      }
+
+      .panel-body {
+        padding: 15px;
+      }
+
+  </style>
+</head>
+
+<body>
+  <h1 id="heading" class="text-center">Risk Type : {{ model }}</h1>
+  <div class="container" id="app">
+    <div class="panel panel-default">
+      <div class="panel-heading">{{ model }}</div>
+      <div class="panel-body">
+        <vue-form-generator :schema="schema" :model="model" :options="formOptions"></vue-form-generator>
+      </div>
+    </div>
+
+
+  </div>
+  <script src="{% static 'js/jquery.min.js' %}"></script>
+  <script type="text/javascript" src="{% static 'js/moment-with-locales.js' %}"></script>
+  <script type="text/javascript" src="{% static 'js/vue.min.js' %}"></script>
+  <script type="text/javascript" src="{% static 'js/vfg.js' %}"></script>
+  <script type="text/javascript" src="{% static 'js/bootstrap-datetimepicker.min.js' %}"></script>
+
+
+
+
+<script>
+
+var VueFormGenerator = window.VueFormGenerator;
+
+var vm = new Vue({
+	el: "#app",
+	components: {
+		"vue-form-generator": VueFormGenerator.component
+	},
+
+	methods: {
+		getEntityDetails: function () {
+           				 var _self = this  
+					 $.getJSON('/riskMgr/svc/riskentity/{{ model }}',function(response){
+ 					 console.log(response);
+					 if(response == undefined || response.length == 0){
+						$('#heading').text("Risk Type not found !");
+						$('#app').hide();
+					 	return;	
+					 }
+					 entity = response[0];
+					 var fields = [];
+					 var validators = [];
+					 $.each(entity['fields'],function(idx,elem){
+                                        
+						var field = new Object();
+						var allowedValues = [];
+						var required = false;
+						var email;
+						var minValue;
+						var maxValue;
+						var maxLength;
+						$.each(elem['constraints'],function(idx,constraint){
+						  	 if(constraint['type']==='ANY_OF')
+							     allowedValues.push(constraint['value']);
+						  	 else if(constraint['type']==='REQUIRED' && constraint['value']==='Y')
+							     required = true;
+						  	 else if(constraint['type']==='MIN_VALUE')
+							     minValue = constraint['value'];
+						  	 else if(constraint['type']==='MAX_VALUE')
+							     maxValue = constraint['value'];
+						  	 else if(constraint['type']==='MAX_LENGTH')
+							     maxLength = constraint['value'];
+						  	 else if(constraint['type']==='EMAIL' && constraint['value']==='Y')
+							     email = true;
+                                                });
+
+						if(elem.type=="date"){
+						   //field.inputType = "dateTimePicker";
+						   field.type = "dateTimePicker";
+						   field.hint = "MM/DD/YYYY";
+						   field.dateTimePickerOptions= {
+							format: "MM/DD/YYYY"
+						   }
+						   validators.push(VueFormGenerator.validators.date);
+						}
+				                else{
+						   if(allowedValues.length > 0){
+						      field.type = "select";
+						      field.values = allowedValues;
+						    }
+						   else{
+						      field.type = "input";
+
+						      if(elem.type=="text"){
+						      	field.inputType = "text";
+						        field.validator=VueFormGenerator.validators.string;
+						     }
+						      else if(elem.type=="number"){
+						      	field.inputType = "number";
+						        field.validator=VueFormGenerator.validators.number;
+						     }
+						      if(email != undefined){
+							field.inputType = "email";
+						        field.validator=VueFormGenerator.validators.email;
+						     }
+
+
+						}
+	
+                                                }
+
+						if(minValue != undefined)
+						   field.min = minValue;
+						if(maxValue != undefined)
+						   field.max = maxValue;
+						if(maxLength != undefined)
+						   field.maxlength = maxLength;
+						field.label = elem.name;
+						field.placeholder=elem.description;
+						field.required=required;
+						field.model = elem.name.replace(/ /g,"_").toLowerCase();
+						fields.push(field);
+
+  					 });
+					 var submitBtn = new Object();
+					 submitBtn.type = "submit";
+					 submitBtn.buttonText = "Submit";
+					 submitBtn.validateBeforeSubmit = true;
+					 fields.push(submitBtn);
+					 var fieldsSchema = new Object();
+					 fieldsSchema.fields = 	fields;
+					 _self.schema = fieldsSchema;
+					 console.log(JSON.stringify(fieldsSchema));
+
+					 });
+	  }
+	},
+
+	beforeMount(){
+    		this.getEntityDetails();
+	},
+
+	data: {
+		model: {},
+		schema:[] ,
+
+		formOptions: {
+			validateAfterLoad: true,
+			validateAfterChanged: true
+		}
+	}
+});
+
+
+</script>
+</body>
+</html>
